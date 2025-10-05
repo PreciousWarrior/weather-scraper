@@ -1,8 +1,8 @@
-name: Collect lamppost weather (every 10 minutes)
+name: Collect lamppost weather (every 30 minutes)
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/30 * * * *"
   workflow_dispatch: {}
 
 jobs:
