@@ -15,17 +15,30 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install conda and create env
+      - name: Install conda & create env (mamba)
         uses: conda-incubator/setup-miniconda@v3
         with:
           auto-update-conda: true
           python-version: 3.11
           channels: conda-forge
-          # create env using mamba for speed
+          # IMPORTANT: ask the action to create the env AND make it available for steps
+          activate-environment: lamppost-env
           run-conda: |
+            # create the env using mamba for speed and reproducibility
             mamba create -y -n lamppost-env python=3.11 geopandas pandas requests -c conda-forge
 
-      - name: Run scraper inside conda env (no shell activation)
+      - name: Run scraper (environment auto-activated)
+        # use a login shell so the action's activation is present
+        shell: bash -l {0}
         run: |
-          # Use `conda run` so we don't need to source conda.sh or rely on CONDA_PREFIX
-          conda run -n lamppost-env python scrape.py --gdb smart_lamppost_fgdb.gdb --out out.csv
+          # now python points to the lamppost-env python
+          python scrape.py --gdb smart_lamppost_fgdb.gdb --out out.csv
+
+      - name: Commit and push updated CSV
+        # push back to the repo using the GITHUB_TOKEN from checkout step
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add out.csv
+          git commit -m "Auto-update out.csv [skip ci]" || echo "No changes to commit"
+          git push
