@@ -15,27 +15,45 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install conda & create env (mamba)
+      - name: Set up conda & create env from environment.yml
         uses: conda-incubator/setup-miniconda@v3
         with:
           auto-update-conda: true
           python-version: 3.11
           channels: conda-forge
-          # IMPORTANT: ask the action to create the env AND make it available for steps
+          environment-file: environment.yml
           activate-environment: lamppost-env
           run-conda: |
-            # create the env using mamba for speed and reproducibility
-            mamba create -y -n lamppost-env python=3.11 geopandas pandas requests -c conda-forge
+            # Use mamba if available, else fall back to conda env update
+            if command -v mamba >/dev/null 2>&1; then
+              mamba env update -n lamppost-env -f environment.yml || mamba create -y -n lamppost-env python=3.11 geopandas pandas requests -c conda-forge
+            else
+              conda env update -n lamppost-env -f environment.yml || conda create -y -n lamppost-env python=3.11 geopandas pandas requests -c conda-forge
+            fi
 
-      - name: Run scraper (environment auto-activated)
-        # use a login shell so the action's activation is present
+      - name: Diagnostics — conda info / envs / list packages
         shell: bash -l {0}
         run: |
-          # now python points to the lamppost-env python
+          echo "----- conda info -----"
+          conda info
+          echo "----- conda env list -----"
+          conda env list
+          echo "----- which python -----"
+          which python || true
+          echo "----- python -V -----"
+          python -V || true
+          echo "----- conda list for lamppost-env -----"
+          conda activate lamppost-env
+          conda list || true
+          echo "----- try importing geopandas -----"
+
+      - name: Run scraper
+        shell: bash -l {0}
+        run: |
+          # env should already be active for login shells thanks to activate-environment
           python scrape.py --gdb smart_lamppost_fgdb.gdb --out out.csv
 
       - name: Commit and push updated CSV
-        # push back to the repo using the GITHUB_TOKEN from checkout step
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
