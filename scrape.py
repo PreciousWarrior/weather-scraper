@@ -219,22 +219,25 @@ def main():
         except Exception as e:
             print(f"[{idx}] parse failed: {e}; skipping")
             continue
+        try:
+            # extract only required fields from device df by substring matching
+            extracted = extract_fields_from_device_df(device_df)
+            if extracted.empty:
+                print(f"[{idx}] no matching columns found in device CSV; skipping")
+                continue
 
-        # extract only required fields from device df by substring matching
-        extracted = extract_fields_from_device_df(device_df)
-        if extracted.empty:
-            print(f"[{idx}] no matching columns found in device CSV; skipping")
+            # Add LP_LATITUDE / LP_LONGITUDE from gdb row (case-insensitive search)
+            lat, lon = find_gdb_latlon(gdf_row)
+            extracted["lp_latitude"] = lat if lat is not None and not pd.isna(lat) else None
+            extracted["lp_longitude"] = lon if lon is not None and not pd.isna(lon) else None
+
+            extracted["source_url"] = url
+
+            # Ensure measurement_datetime is string or None; if None, will be left None
+            collected.append(extracted)
+        except Exception as e:
+            print(f"[{idx}] extraction failed: {e}; skipping")
             continue
-
-        # Add LP_LATITUDE / LP_LONGITUDE from gdb row (case-insensitive search)
-        lat, lon = find_gdb_latlon(gdf_row)
-        extracted["lp_latitude"] = lat if lat is not None and not pd.isna(lat) else None
-        extracted["lp_longitude"] = lon if lon is not None and not pd.isna(lon) else None
-
-        extracted["source_url"] = url
-
-        # Ensure measurement_datetime is string or None; if None, will be left None
-        collected.append(extracted)
 
     if not collected:
         print("No device rows collected; exiting.")
